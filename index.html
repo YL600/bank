@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>银行客户流失分析与可视化系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css ">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js "></script>
+    <style>
+        :root {
+            --primary: #0F2B46;
+            --gold: #D4AF37;
+            --light-gold: #F4E4A6;
+            --bg: #f5f7fa;
+            --card: #fff;
+            --text: #333;
+            --shadow: 0 4px 12px rgba(0,0,0,.08);
+            --shadow-hover: 0 8px 24px rgba(0,0,0,.12);
+            --radius: 12px;
+            --nav: 220px;
+            --transition: all 0.3s ease;
+        }
+        /* 深色模式变量 */
+        .dark-mode {
+            --primary: #2A4D6E;
+            --gold: #D4AF37;
+            --light-gold: #F4E4A6;
+            --bg: #1a1d21;
+            --card: #252a30;
+            --text: #e6e6e6;
+            --shadow: 0 4px 12px rgba(0,0,0,.3);
+            --shadow-hover: 0 8px 24px rgba(0,0,0,.4);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            transition: var(--transition);
+        }
+        /* 顶部栏 */
+        .topbar {
+            height: 60px;
+            background: var(--primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .topbar-right i {
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .topbar-right i:hover {
+            color: var(--gold);
+        }
+        /* 主体 */
+        .body-wrap {
+            display: flex;
+            flex: 1;
+            margin-top: 60px;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: var(--nav);
+            background: var(--primary);
+            color: #fff;
+            padding: 30px 20px;
+            overflow-y: auto;
+            transition: var(--transition);
+        }
+        .sidebar h3 {
+            margin-bottom: 20px;
+            font-size: 18px;
+            text-align: center;
+            color: var(--gold);
+        }
+        .nav-item {
+            padding: 12px 14px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(255,255,255,.15);
+            transform: translateX(5px);
+        }
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+        }
+        .module {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .module.active {
+            display: block;
+        }
+        /* 卡片布局 */
+        .grid {
+            display: grid;
+            gap: 30px;
+        }
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+        }
+        .grid-1 {
+            grid-template-columns: 1fr;
+        }
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 25px;
+            transition: var(--transition);
+            height: fit-content;
+        }
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-5px);
+        }
+        .card h4 {
+            margin-bottom: 15px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 17px;
+            border-bottom: 2px solid var(--gold);
+            padding-bottom: 10px;
+        }
+        .card img {
+            width: 100%;
+            height: 260px;
+            object-fit: contain;
+            border-radius: var(--radius);
+        }
+        /* 图表容器 */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        /* 解释区 */
+        .explain {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f4fa;
+            border-left: 5px solid var(--gold);
+            border-radius: var(--radius);
+        }
+        .dark-mode .explain {
+            background: #2a3441;
+        }
+        .explain h5 {
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+        .explain p {
+            line-height: 1.6;
+            font-size: 15px;
+            margin-bottom: 10px;
+        }
+        /* 图片说明 */
+        .image-caption {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: var(--radius);
+            font-size: 14px;
+            color: #555;
+        }
+        .dark-mode .image-caption {
+            background: #2a3441;
+            color: #ccc;
+        }
+        /* 建议部分 */
+        .recommendations {
+            margin-top: 40px;
+            background: linear-gradient(135deg, #f0f4fa 0%, #e6eef9 100%);
+            border-radius: var(--radius);
+            padding: 25px;
+            border: 1px solid #dde6f0;
+        }
+        .dark-mode .recommendations {
+            background: linear-gradient(135deg, #2a3441 0%, #1e2835 100%);
+            border: 1px solid #3a4451;
+        }
+        .recommendations h4 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .recommendation-item {
+            margin-bottom: 15px;
+            padding-left: 25px;
+            position: relative;
+        }
+        .recommendation-item:before {
+            content: "•";
+            color: var(--gold);
+            font-weight: bold;
+            position: absolute;
+            left: 10px;
+            font-size: 20px;
+        }
+        /* 数据表格 */
+        .data-table-container {
+            overflow-x: auto;
+            margin-top: 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card);
+        }
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .dark-mode .data-table th, 
+        .dark-mode .data-table td {
+            border-bottom: 1px solid #3a4451;
+        }
+        .data-table th {
+            background-color: var(--primary);
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        .data-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .dark-mode .data-table tr:nth-child(even) {
+            background-color: #2a3441;
+        }
+        .data-table tr:hover {
+            background-color: #f1f1f1;
+        }
+        .dark-mode .data-table tr:hover {
+            background-color: #3a4451;
+        }
+        .risk-low {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .risk-medium {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .risk-high {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        /* 产品关联图特殊样式 */
+        .product-image {
+            height: 320px !important;
+        }
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
+                padding: 20px 10px;
+            }
+            .sidebar h3, .nav-item span {
+                display: none;
+            }
+            .nav-item {
+                justify-content: center;
+            }
+            .main {
+                padding: 20px;
+            }
+            .product-image {
+                height: 240px !important;
+            }
+        }
+        /* 模态框样式 */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.45);
+            display: none;
+            place-items: center;
+            z-index: 9999;
+        }
+        .modal-box {
+            background: var(--card);
+            width: 90%;
+            max-width: 420px;
+            border-radius: var(--radius);
+            padding: 25px 30px 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.18);
+            position: relative;
+            color: var(--text);
+        }
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 15px;
+            font-size: 18px;
+            color: #666;
+            cursor: pointer;
+        }
+        .dark-mode .modal-close {
+            color: #aaa;
+        }
+        .modal-close:hover {
+            color: var(--gold);
+        }
+        .modal-content h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+        .modal-content label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .modal-content hr {
+            margin: 12px 0;
+            border: none;
+            border-top: 1px solid #ddd;
+        }
+        .dark-mode .modal-content hr {
+            border-top: 1px solid #444;
+        }
+        .modal-content button {
+            margin-right: 10px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background: #f5f5f5;
+            transition: var(--transition);
+        }
+        .dark-mode .modal-content button {
+            background: #3a4451;
+            border: 1px solid #555;
+            color: #eee;
+        }
+        .modal-content button:hover {
+            background: #e5e5e5;
+        }
+        .dark-mode .modal-content button:hover {
+            background: #4a5562;
+        }
+        .modal-content button.confirm {
+            background: var(--gold);
+            border: none;
+            color: #fff;
+        }
+        .modal-content button.confirm:hover {
+            background: #c69c2d;
+        }
+        .modal-content input[type="range"] {
+            width: 100%;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 顶部栏 -->
+<header class="topbar">
+    <div class="logo"><i class="fas fa-university"></i> 银行客户流失分析与可视化系统</div>
+    <div class="topbar-right">
+        <i class="fas fa-bell" title="通知"></i>
+        <i class="fas fa-cog" title="设置"></i>
+        <span>欢迎，<b>Admin</b></span>
+        <i class="fas fa-sign-out-alt" title="退出"></i>
+    </div>
+</header>
+
+<div class="body-wrap">
+    <!-- 左侧导航 -->
+    <aside class="sidebar">
+        <h3>功能导航</h3>
+        <div class="nav-item active" data-module="overview"><i class="fas fa-users"></i><span>客户概览</span></div>
+        <div class="nav-item" data-module="factor"><i class="fas fa-search"></i><span>流失因素</span></div>
+        <div class="nav-item" data-module="product"><i class="fas fa-box"></i><span>产品关联</span></div>
+        <div class="nav-item" data-module="predict"><i class="fas fa-chart-line"></i><span>预测与建议</span></div>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="main">
+
+        <!-- 1. 客户概览 -->
+        <section id="overview" class="module active">
+            <div class="grid grid-1">
+                <div class="card">
+                    <h4><i class="fas fa-chart-line"></i>客户总数与流失数年度趋势 (2018-2023)</h4>
+                    <div class="chart-container">
+                        <canvas id="customerTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-2">
+                <div class="card">
+                    <h4><i class="fas fa-chart-bar"></i>客户总体流失率</h4>
+                    <img src="客户概览/客户总体流失率.jpg" alt="客户总体流失率">
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-user-clock"></i>新老客户的流失率</h4>
+                    <img src="客户概览/新老客户的流失率.jpg" alt="新老客户的流失率">
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 流失因素 -->
+        <section id="factor" class="module">
+            <div class="grid grid-2">
+                <div class="card">
+                    <h4><i class="fas fa-credit-card"></i>银行卡流失</h4>
+                    <img src="流失因素/card_churn.png" alt="银行卡流失">
+                    <div class="image-caption">持有信用卡与未持有信用卡客户的流失率对比</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-money-bill-wave"></i>收入余额</h4>
+                    <img src="流失因素/income_balance.png" alt="收入余额">
+                    <div class="image-caption">客户收入与余额的关系及其对流失的影响</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-star-half-alt"></i>信用评分</h4>
+                    <img src="流失因素/credit_score.png" alt="信用评分">
+                    <div class="image-caption">不同信用评分区间客户的流失情况</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-globe-asia"></i>地理性别</h4>
+                    <img src="流失因素/geo_gender.png" alt="地理性别">
+                    <div class="image-caption">不同地区和性别客户的流失率分布</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-user-clock"></i>年龄流失</h4>
+                    <img src="流失因素/age_churn.png" alt="年龄流失">
+                    <div class="image-caption">不同年龄段客户的流失率分析</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-project-diagram"></i>特征相关性</h4>
+                    <img src="流失因素/feature_corr.png" alt="特征相关性">
+                    <div class="image-caption">各特征与流失率之间的相关性热力图</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-user-check"></i>活跃度流失</h4>
+                    <img src="流失因素/active_churn.png" alt="活跃度流失">
+                    <div class="image-caption">活跃会员与非活跃会员的流失率对比</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-chart-pie"></i>收入流失</h4>
+                    <img src="流失因素/income_churn.png" alt="收入流失">
+                    <div class="image-caption">不同收入水平客户的流失情况</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-venus-mars"></i>男女客户流失率</h4>
+                    <img src="流失因素/男女客户流失率.jpg" alt="男女客户流失率">
+                    <div class="image-caption">不同性别客户的流失率对比分析</div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-map-marked-alt"></i>地区流失率</h4>
+                    <img src="流失因素/地区流失率.jpg" alt="地区流失率">
+                    <div class="image-caption">不同地区客户的流失率分布</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 产品关联 -->
+        <section id="product" class="module">
+            <div class="grid grid-1">
+                <div class="card">
+                    <h4><i class="fas fa-chart-bar"></i>产品数量与流失率</h4>
+                    <img src="产品关联/product_count_churn.jpg" alt="产品关联分析" class="product-image">
+                    <div class="image-caption">持有不同数量产品客户的流失率分析 - 持有单一产品的客户流失风险显著高于持有多个产品的客户</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. 预测与建议 -->
+        <section id="predict" class="module">
+            <div class="grid grid-2">
+                <div class="card">
+                    <h4><i class="fas fa-th"></i>混淆矩阵</h4>
+                    <img src="预测与建议/11.png" alt="混淆矩阵">
+                    <div class="image-caption">
+                        <strong>混淆矩阵分析：</strong>在阈值<span id="current-threshold">0.45</span>下，模型表现良好：
+                        <ul>
+                            <li>真正例(TP)：<span id="tp-count">35</span>人 - 正确预测的流失客户</li>
+                            <li>假正例(FP)：<span id="fp-count">14</span>人 - 错误预测为流失的客户</li>
+                            <li>召回率≈<span id="recall-rate">74</span>% - 能够识别出大部分实际流失客户</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-chart-bar"></i>特征重要性</h4>
+                    <img src="预测与建议/22.png" alt="特征重要性">
+                    <div class="image-caption">
+                        <strong>特征重要性分析：</strong>
+                        <ul>
+                            <li>年龄：最重要的预测因子，年龄越大流失风险越高</li>
+                            <li>产品数量：持有产品数量与流失率密切相关</li>
+                            <li>活跃状态：非活跃会员流失风险显著更高</li>
+                            <li>余额：账户余额较高的客户流失风险较低</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card">
+                    <h4><i class="fas fa-chart-line"></i>ROC曲线</h4>
+                    <img src="预测与建议/33.png" alt="ROC曲线">
+                    <div class="image-caption">
+                        <strong>ROC曲线分析：</strong>
+                        <ul>
+                            <li>AUC=0.9118，表明模型具有优秀的区分能力</li>
+                            <li>曲线靠近左上角，说明模型在真阳率和假阳率之间取得了良好平衡</li>
+                            <li>模型性能远超随机分类器(AUC=0.5)，可投入实际业务应用</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="card">
+                <h4><i class="fas fa-table"></i>客户流失预测数据</h4>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>客户ID</th>
+                                <th>信用评分</th>
+                                <th>年龄</th>
+                                <th>余额</th>
+                                <th>产品数量</th>
+                                <th>预估薪资</th>
+                                <th>流失概率</th>
+                                <th>风险等级</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>0</td>
+                                <td>15674932</td>
+                                <td>668</td>
+                                <td>33</td>
+                                <td>0.0</td>
+                                <td>2</td>
+                                <td>181449.97</td>
+                                <td>6.96%</td>
+                                <td class="risk-low">低风险</td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td>15771669</td>
+                                <td>588</td>
+                                <td>36</td>
+                                <td>131778.58</td>
+                                <td>1</td>
+                                <td>136024.31</td>
+                                <td>54.64%</td>
+                                <td class="risk-medium">中风险</td>
+                            </tr>
+                            <tr>
+                                <td>18</td>
+                                <td>15671358</td>
+                                <td>645</td>
+                                <td>55</td>
+                                <td>120105.43</td>
+                                <td>1</td>
+                                <td>125083.29</td>
+                                <td>85.15%</td>
+                                <td class="risk-high">高风险</td>
+                            </tr>
+                            <tr>
+                                <td>34</td>
+                                <td>15593973</td>
+                                <td>749</td>
+                                <td>50</td>
+                                <td>132576.25</td>
+                                <td>1</td>
+                                <td>125939.18</td>
+                                <td>83.13%</td>
+                                <td class="risk-high">高风险</td>
+                            </tr>
+                            <tr>
+                                <td>39</td>
+                                <td>15653849</td>
+                                <td>747</td>
+                                <td>58</td>
+                                <td>114514.71</td>
+                                <td>1</td>
+                                <td>45414.12</td>
+                                <td>83.36%</td>
+                                <td class="risk-high">高风险</td>
+                            </tr>
+                            <tr>
+                                <td>199</td>
+                                <td>15626414</td>
+                                <td>703</td>
+                                <td>50</td>
+                                <td>98862.54</td>
+                                <td>1</td>
+                                <td>151516.7</td>
+                                <td>83.73%</td>
+                                <td class="risk-high">高风险</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 建议部分 -->
+            <div class="recommendations">
+                <h4><i class="fas fa-lightbulb"></i> 业务建议与策略</h4>
+                
+                <div class="recommendation-item">
+                    <strong>针对高龄客户：</strong>年龄是流失的最重要预测因子。建议为55岁以上客户设计专属金融产品，提供更高价值的个性化服务，定期进行客户关怀回访，并考虑提供老年专属优惠利率。
+                </div>
+                
+                <div class="recommendation-item">
+                    <strong>产品多样化策略：</strong>持有单一产品的客户流失风险显著更高。建议通过交叉销售鼓励客户使用多种产品，为持有单一产品客户提供产品捆绑优惠，并定期评估产品组合满足客户需求的情况。
+                </div>
+                
+                <div class="recommendation-item">
+                    <strong>提升客户活跃度：</strong>非活跃会员流失率明显较高。建议建立客户激活计划针对非活跃客户，通过个性化内容推送提高参与度，并设计游戏化机制增加应用使用频率。
+                </div>
+                
+                <div class="recommendation-item">
+                    <strong>德国市场专项策略：</strong>德国客户的流失率显著高于其他国家。建议进行深入调研了解德国客户特定需求，提供本地化产品和服务，并加强德语客户服务支持。
+                </div>
+                
+                <div class="recommendation-item">
+                    <strong>高风险客户干预：</strong>针对高流失概率客户(概率大于70%)。建议建立预警系统实时识别高风险客户，分配专属客户经理进行主动联系，并提供个性化保留方案和特别优惠。
+                </div>
+                
+                <div class="recommendation-item">
+                    <strong>平衡与薪资策略：</strong>余额/薪资比较高的客户流失风险较低。建议推广自动储蓄工具帮助客户增加余额，为高余额客户提供优先服务特权，并设计薪资理财一体化产品。
+                </div>
+                
+                <div class="recommendation-item">
+                    <strong>信用评分优化：</strong>中等信用评分客户流失风险较高。建议提供信用教育资源和改善建议，为信用改善客户提供奖励机制，并开发适合中等信用评分客户的产品。
+                </div>
+                
+                <div class="recommendation-item">
+                    <strong>技术赋能：</strong>利用AI模型进行精准干预。建议将预测模型集成到CRM系统中，建立自动化客户健康评分仪表板，并基于预测结果自动化营销活动。
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- 弹窗 HTML -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box">
+        <i class="fas fa-times modal-close" id="modal-close"></i>
+        <div id="modal-content"></div>
+    </div>
+</div>
+
+<script>
+// 全局变量
+let currentThreshold = 0.45;
+let isDarkMode = false;
+
+// 模块切换功能
+document.addEventListener('DOMContentLoaded', function() {
+    const navItems = document.querySelectorAll('.nav-item');
+    const modules = document.querySelectorAll('.module');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const targetModule = this.getAttribute('data-module');
+            
+            // 更新导航激活状态
+            navItems.forEach(nav => nav.classList.remove('active'));
+            this.classList.add('active');
+            
+            // 显示对应模块
+            modules.forEach(module => {
+                module.classList.remove('active');
+                if (module.id === targetModule) {
+                    module.classList.add('active');
+                }
+            });
+        });
+    });
+    
+    // 绘制客户趋势图表 - 使用年份作为横坐标
+    const ctx = document.getElementById('customerTrendChart').getContext('2d');
+    const customerTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['2018', '2019', '2020', '2021', '2022', '2023'],
+            datasets: [
+                {
+                    label: '客户总数',
+                    data: [3850, 4320, 4730, 5220, 5710, 5910],
+                    borderColor: '#0F2B46',
+                    backgroundColor: 'rgba(15, 43, 70, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    borderWidth: 2
+                },
+                {
+                    label: '流失客户数',
+                    data: [290, 320, 410, 450, 490, 530],
+                    borderColor: '#D4AF37',
+                    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '客户数量',
+                        font: {
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: '年份',
+                        font: {
+                            weight: 'bold'
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // 初始化弹窗功能
+    initModal();
+});
+
+// 弹窗功能
+function initModal() {
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalContent = document.getElementById('modal-content');
+    const modalClose = document.getElementById('modal-close');
+
+    // 打开弹窗
+    function openModal(title, body) {
+        modalContent.innerHTML = `<h3>${title}</h3><div>${body}</div>`;
+        modalOverlay.style.display = 'grid';
+    }
+
+    // 关闭弹窗
+    function closeModal() {
+        modalOverlay.style.display = 'none';
+    }
+    
+    modalClose.onclick = closeModal;
+    modalOverlay.addEventListener('click', e => {
+        if (e.target === modalOverlay) closeModal();
+    });
+
+    // 弹窗内容定义
+    const modalContents = {
+        'fa-bell': {
+            title: '通知中心', 
+            body: `
+                <ul style="padding-left:18px;line-height:1.8">
+                    <li>5 位高风险客户今日已发送挽留短信</li>
+                    <li>“德国市场专项策略”周报已生成</li>
+                    <li>模型 AUC 从 0.9118 提升到 0.9262</li>
+                </ul>`
+        },
+        'fa-cog': {
+            title: '快捷设置', 
+            body: `
+                <label>
+                    <input type="checkbox" id="darkToggle" ${isDarkMode ? 'checked' : ''}>
+                    启用深色主题
+                </label>
+                <hr>
+                <label>
+                    阈值调整：
+                    <input type="range" id="thresRange" min="0.1" max="0.9" step="0.05" value="${currentThreshold}" style="width:100%">
+                    <span id="thresVal">${currentThreshold}</span>
+                </label>
+                <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                    阈值影响：阈值越低，系统越敏感，可能产生更多误报；阈值越高，系统越保守，可能漏掉一些真实流失客户。
+                </div>`
+        },
+        'fa-sign-out-alt': {
+            title: '退出确认', 
+            body: `
+                <p>确定要退出当前帐号吗？</p>
+                <div style="text-align:right;margin-top:18px">
+                    <button id="cancelExit">取消</button>
+                    <button id="confirmExit" class="confirm">确认</button>
+                </div>`
+        }
+    };
+
+    // 绑定右上角图标点击事件
+    document.querySelectorAll('.topbar-right i').forEach(icon => {
+        icon.style.cursor = 'pointer';
+        icon.onclick = () => {
+            const iconClass = [...icon.classList].find(cls => modalContents[cls]);
+            if (iconClass) {
+                const content = modalContents[iconClass];
+                openModal(content.title, content.body);
+                
+                // 设置特定弹窗的交互
+                if (iconClass === 'fa-cog') {
+                    // 深色模式切换
+                    const darkToggle = document.getElementById('darkToggle');
+                    darkToggle.addEventListener('change', function() {
+                        toggleDarkMode(this.checked);
+                    });
+                    
+                    // 阈值滑块
+                    const thresRange = document.getElementById('thresRange');
+                    const thresVal = document.getElementById('thresVal');
+                    
+                    thresRange.addEventListener('input', function() {
+                        thresVal.textContent = this.value;
+                        updateThreshold(parseFloat(this.value));
+                    });
+                } else if (iconClass === 'fa-sign-out-alt') {
+                    // 退出确认按钮
+                    document.getElementById('cancelExit').onclick = closeModal;
+                    document.getElementById('confirmExit').onclick = function() {
+                        alert('退出成功！');
+                        closeModal();
+                    };
+                }
+            }
+        };
+    });
+}
+
+// 切换深色模式
+function toggleDarkMode(enable) {
+    isDarkMode = enable;
+    if (enable) {
+        document.documentElement.classList.add('dark-mode');
+        localStorage.setItem('darkMode', 'enabled');
+    } else {
+        document.documentElement.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', 'disabled');
+    }
+}
+
+// 更新阈值
+function updateThreshold(value) {
+    currentThreshold = value;
+    
+    // 更新阈值显示
+    document.getElementById('current-threshold').textContent = value.toFixed(2);
+    
+    // 根据阈值更新混淆矩阵数据（模拟数据）
+    const tpCount = Math.round(35 * (0.5 + value)); // 模拟TP随阈值变化
+    const fpCount = Math.round(14 * (1 - value));   // 模拟FP随阈值变化
+    const recallRate = Math.round((tpCount / 47) * 100); // 假设实际流失客户47人
+    
+    document.getElementById('tp-count').textContent = tpCount;
+    document.getElementById('fp-count').textContent = fpCount;
+    document.getElementById('recall-rate').textContent = recallRate;
+    
+    // 保存阈值到本地存储
+    localStorage.setItem('threshold', value);
+}
+
+// 初始化设置
+function initSettings() {
+    // 检查本地存储中的深色模式设置
+    const savedDarkMode = localStorage.getItem('darkMode');
+    if (savedDarkMode === 'enabled') {
+        toggleDarkMode(true);
+    }
+    
+    // 检查本地存储中的阈值设置
+    const savedThreshold = localStorage.getItem('threshold');
+    if (savedThreshold) {
+        updateThreshold(parseFloat(savedThreshold));
+    }
+}
+
+// 页面加载完成后初始化设置
+window.addEventListener('load', initSettings);
+</script>
+</body>
+</html>
